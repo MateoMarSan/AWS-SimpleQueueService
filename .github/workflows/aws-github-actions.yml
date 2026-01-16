@@ -1,14 +1,15 @@
-name: Deploy CloudFormation
+name: Deploy CloudFormation (2xS3 + SQS)
 
 on:
   push:
-    branches:
-      - main
+    branches: [ "main" ]
+    paths:
+      - "iac/**"
+      - ".github/workflows/**"
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -28,4 +29,6 @@ jobs:
           aws cloudformation deploy \
             --stack-name "${{ secrets.CFN_STACK_NAME }}" \
             --template-file iac/template.yaml \
-            --parameter-overrides BucketName="${{ secrets.S3_INPUT_BUCKET_NAME }}"
+            --parameter-overrides \
+              InputBucketName="${{ secrets.S3_INPUT_BUCKET_NAME }}" \
+              OutputBucketName="${{ secrets.S3_OUTPUT_BUCKET_NAME }}"
