@@ -1,3 +1,4 @@
+#CloudFormation
 AWSTemplateFormatVersion: "2010-09-09"
 Description: Practica AWS - S3 -> SQS -> Lambda (Textract) -> S3 (txt) (IaC)
 
