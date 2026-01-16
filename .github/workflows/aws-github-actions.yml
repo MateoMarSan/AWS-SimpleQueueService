@@ -1,15 +1,17 @@
-name: Deploy CloudFormation (2xS3 + SQS)
+name: Deploy Full Stack (2xS3 + SQS + Lambda + Textract)
 
 on:
   push:
     branches: [ "main" ]
     paths:
       - "iac/**"
+      - "lambda/**"
       - ".github/workflows/**"
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -21,6 +23,24 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
+      - name: Package Lambda (zip)
+        run: |
+          cd lambda
+          zip -r ../lambda.zip . -x "*.pyc" "__pycache__/*"
+          cd ..
+          ls -la lambda.zip
+
+      - name: Ensure artifact bucket exists
+        run: |
+          aws s3api head-bucket --bucket "${{ secrets.LAMBDA_ARTIFACT_BUCKET }}" 2>/dev/null \
+          || aws s3api create-bucket \
+              --bucket "${{ secrets.LAMBDA_ARTIFACT_BUCKET }}" \
+              --create-bucket-configuration LocationConstraint="${{ secrets.AWS_REGION }}"
+
+      - name: Upload Lambda artifact to S3
+        run: |
+          aws s3 cp lambda.zip "s3://${{ secrets.LAMBDA_ARTIFACT_BUCKET }}/${{ secrets.LAMBDA_ARTIFACT_KEY }}"
+
       - name: Validate CloudFormation template
         run: aws cloudformation validate-template --template-body file://iac/template.yaml
 
@@ -29,6 +49,10 @@ jobs:
           aws cloudformation deploy \
             --stack-name "${{ secrets.CFN_STACK_NAME }}" \
             --template-file iac/template.yaml \
+            --capabilities CAPABILITY_NAMED_IAM \
             --parameter-overrides \
               InputBucketName="${{ secrets.S3_INPUT_BUCKET_NAME }}" \
-              OutputBucketName="${{ secrets.S3_OUTPUT_BUCKET_NAME }}"
+              OutputBucketName="${{ secrets.S3_OUTPUT_BUCKET_NAME }}" \
+              LambdaCodeBucket="${{ secrets.LAMBDA_ARTIFACT_BUCKET }}" \
+              LambdaCodeKey="${{ secrets.LAMBDA_ARTIFACT_KEY }}" \
+              OutputPrefix="${{ secrets.OUTPUT_PREFIX }}"

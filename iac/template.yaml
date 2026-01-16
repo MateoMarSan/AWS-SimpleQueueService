@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Practica AWS - S3 (origen) -> SQS + S3 (destino) (IaC)
+Description: Practica AWS - S3 -> SQS -> Lambda (Textract) -> S3 (txt) (IaC)
 
 Parameters:
   InputBucketName:
@@ -10,14 +10,28 @@ Parameters:
     Type: String
     Description: Nombre del bucket S3 de salida (destino)
 
+  LambdaCodeBucket:
+    Type: String
+    Description: Bucket S3 donde se sube el ZIP de la Lambda
+
+  LambdaCodeKey:
+    Type: String
+    Description: Key (ruta) del ZIP de la Lambda dentro del bucket (ej: artifacts/lambda.zip)
+
+  OutputPrefix:
+    Type: String
+    Default: outputs/
+    Description: Prefijo en el bucket destino para guardar los .txt (ej: outputs/)
+
 Resources:
-  # Cola SQS
+  # -------------------------
+  # SQS
+  # -------------------------
   InputQueue:
     Type: AWS::SQS::Queue
     Properties:
-      VisibilityTimeout: 60
+      VisibilityTimeout: 120
 
-  # Policy para permitir que S3 envie mensajes a SQS
   InputQueuePolicy:
     Type: AWS::SQS::QueuePolicy
     Properties:
@@ -38,7 +52,9 @@ Resources:
               StringEquals:
                 aws:SourceAccount: !Ref AWS::AccountId
 
-  # Bucket S3 de entrada (origen) con notificacion a SQS
+  # -------------------------
+  # S3 origen (notifica a SQS)
+  # -------------------------
   InputBucket:
     Type: AWS::S3::Bucket
     DependsOn:
@@ -50,11 +66,100 @@ Resources:
           - Event: s3:ObjectCreated:*
             Queue: !GetAtt InputQueue.Arn
 
-  # Bucket S3 de salida (destino)
+  # -------------------------
+  # S3 destino
+  # -------------------------
   OutputBucket:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Ref OutputBucketName
+
+  # -------------------------
+  # IAM Role Lambda
+  # -------------------------
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub textract-lambda-role-${AWS::StackName}
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub textract-lambda-policy-${AWS::StackName}
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # Logs
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "*"
+
+              # SQS (leer y borrar mensajes)
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                  - sqs:ChangeMessageVisibility
+                Resource: !GetAtt InputQueue.Arn
+
+              # S3 origen: leer objetos
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource: !Sub arn:aws:s3:::${InputBucketName}/*
+
+              # S3 destino: escribir resultados
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                Resource: !Sub arn:aws:s3:::${OutputBucketName}/*
+
+              # Textract
+              - Effect: Allow
+                Action:
+                  - textract:DetectDocumentText
+                  - textract:StartDocumentTextDetection
+                  - textract:GetDocumentTextDetection
+                Resource: "*"
+
+  # -------------------------
+  # Lambda
+  # -------------------------
+  TextractLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub textract-processor-${AWS::StackName}
+      Runtime: python3.12
+      Handler: handler.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 120
+      MemorySize: 512
+      Environment:
+        Variables:
+          OUTPUT_BUCKET: !Ref OutputBucketName
+          OUTPUT_PREFIX: !Ref OutputPrefix
+      Code:
+        S3Bucket: !Ref LambdaCodeBucket
+        S3Key: !Ref LambdaCodeKey
+
+  # -------------------------
+  # Trigger: SQS -> Lambda
+  # -------------------------
+  SQSToLambdaMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt InputQueue.Arn
+      FunctionName: !Ref TextractLambda
+      BatchSize: 1
+      Enabled: true
 
 Outputs:
   InputBucketNameOut:
@@ -69,6 +174,6 @@ Outputs:
     Description: URL de la cola SQS
     Value: !Ref InputQueue
 
-  InputQueueArn:
-    Description: ARN de la cola SQS
-    Value: !GetAtt InputQueue.Arn
+  LambdaNameOut:
+    Description: Nombre de la Lambda
+    Value: !Ref TextractLambda
