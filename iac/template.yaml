@@ -1,0 +1,13 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Bucket S3 de entrada
+
+Parameters:
+  BucketName:
+    Type: String
+    Description: Bucket S3 de entrada
+
+Resources:
+  InputBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref BucketName
