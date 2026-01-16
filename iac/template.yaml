@@ -1,14 +1,74 @@
-AWSTemplateFormatVersion: '2010-09-09'
-Description: Bucket S3 de entrada
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Practica AWS - S3 (origen) -> SQS + S3 (destino) (IaC)
 
 Parameters:
-  BucketName:
+  InputBucketName:
     Type: String
-    Description: Bucket S3 de entrada
+    Description: Nombre del bucket S3 de entrada (origen)
+
+  OutputBucketName:
+    Type: String
+    Description: Nombre del bucket S3 de salida (destino)
 
 Resources:
+  # Cola SQS
+  InputQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      VisibilityTimeout: 60
+
+  # Policy para permitir que S3 envie mensajes a SQS
+  InputQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref InputQueue
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowS3ToSendMessage
+            Effect: Allow
+            Principal:
+              Service: s3.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt InputQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Sub arn:aws:s3:::${InputBucketName}
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+
+  # Bucket S3 de entrada (origen) con notificacion a SQS
   InputBucket:
     Type: AWS::S3::Bucket
+    DependsOn:
+      - InputQueuePolicy
     Properties:
-      BucketName: !Ref BucketName
+      BucketName: !Ref InputBucketName
+      NotificationConfiguration:
+        QueueConfigurations:
+          - Event: s3:ObjectCreated:*
+            Queue: !GetAtt InputQueue.Arn
 
+  # Bucket S3 de salida (destino)
+  OutputBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref OutputBucketName
+
+Outputs:
+  InputBucketNameOut:
+    Description: Bucket S3 de entrada (origen)
+    Value: !Ref InputBucket
+
+  OutputBucketNameOut:
+    Description: Bucket S3 de salida (destino)
+    Value: !Ref OutputBucket
+
+  InputQueueUrl:
+    Description: URL de la cola SQS
+    Value: !Ref InputQueue
+
+  InputQueueArn:
+    Description: ARN de la cola SQS
+    Value: !GetAtt InputQueue.Arn
