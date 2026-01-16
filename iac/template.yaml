@@ -11,3 +11,8 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Ref BucketName
+
+Outputs:
+  InputBucketName:
+    Description: Nombre del bucket S3 creado
+    Value: !Ref InputBucket
