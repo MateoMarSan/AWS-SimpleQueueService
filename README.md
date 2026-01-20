@@ -1,12 +1,12 @@
-\# Arquitectura como Código en AWS con Textract y GitHub Actions
+# Arquitectura como Código en AWS con Textract y GitHub Actions
 
 
 
-\## Descripción general
+## Descripción general
 
 
 
-En esta práctica se implementa una arquitectura \*\*serverless en AWS\*\* siguiendo el enfoque de \*\*Infraestructura como Código (IaC)\*\* mediante \*\*AWS CloudFormation\*\*, y se integra un flujo de \*\*CI/CD\*\* utilizando \*\*GitHub Actions\*\*.
+En esta práctica se implementa una arquitectura **serverless en AWS** siguiendo el enfoque de **Infraestructura como Código (IaC)** mediante **AWS CloudFormation**, y se integra un flujo de **CI/CD** utilizando **GitHub Actions**.
 
 
 
@@ -22,7 +22,7 @@ Toda la infraestructura se define de forma declarativa y se despliega automátic
 
 
 
-\## Arquitectura implementada
+## Arquitectura implementada
 
 
 
@@ -30,19 +30,19 @@ La arquitectura sigue el siguiente flujo:
 
 
 
-1\. Un fichero (imagen o documento) se sube a un \*\*bucket S3 de entrada\*\*.
+1. Un fichero (imagen o documento) se sube a un **bucket S3 de entrada**.
 
-2\. El evento de creación del objeto genera un mensaje en una \*\*cola Amazon SQS\*\*.
+2. El evento de creación del objeto genera un mensaje en una **cola Amazon SQS**.
 
-3\. Una \*\*función AWS Lambda\*\* es activada por la cola SQS.
+3. Una **función AWS Lambda** es activada por la cola SQS.
 
-4\. La función Lambda procesa el fichero utilizando \*\*Amazon Textract\*\* para extraer el texto.
+4. La función Lambda procesa el fichero utilizando **Amazon Textract** para extraer el texto.
 
-5\. El resultado del procesamiento se almacena:
+5. El resultado del procesamiento se almacena:
 
-&nbsp;  - En un \*\*bucket S3 de salida\*\*, en formato texto o JSON.
+&nbsp;  - En un **bucket S3 de salida**, en formato texto o JSON.
 
-&nbsp;  - En una \*\*tabla DynamoDB\*\*, junto con metadatos del documento.
+&nbsp;  - En una **tabla DynamoDB**, junto con metadatos del documento.
 
 
 
@@ -54,7 +54,7 @@ Este enfoque desacopla los componentes, mejora la escalabilidad y permite la ges
 
 
 
-\## Infraestructura como Código (IaC)
+## Infraestructura como Código (IaC)
 
 
 
@@ -62,29 +62,29 @@ Toda la infraestructura se define en un único archivo de \*\*AWS CloudFormation
 
 
 
-\- Buckets S3 (origen y destino)
+- Buckets S3 (origen y destino)
 
-\- Cola SQS
+- Cola SQS
 
-\- Función Lambda
+- Función Lambda
 
-\- Tabla DynamoDB
+- Tabla DynamoDB
 
-\- Roles y políticas IAM necesarias
+- Roles y políticas IAM necesarias
 
-\- Asociación de eventos entre servicios
+- Asociación de eventos entre servicios
 
 
 
 Gracias a CloudFormation, la infraestructura es:
 
-\- Reproducible
+- Reproducible
 
-\- Versionable
+- Versionable
 
-\- Automatizable
+- Automatizable
 
-\- Fácilmente mantenible
+- Fácilmente mantenible
 
 
 
@@ -92,19 +92,19 @@ Gracias a CloudFormation, la infraestructura es:
 
 
 
-\## Integración CI/CD con GitHub Actions
+## Integración CI/CD con GitHub Actions
 
 
 
-El proyecto incorpora \*\*GitHub Actions\*\* para automatizar el despliegue de la infraestructura en AWS.
+El proyecto incorpora **GitHub Actions** para automatizar el despliegue de la infraestructura en AWS.
 
 
 
-\### Funcionamiento del pipeline
+### Funcionamiento del pipeline
 
 
 
-\- Cada vez que se realiza un `push` a la rama principal del repositorio:
+- Cada vez que se realiza un `push` a la rama principal del repositorio:
 
 &nbsp; 1. GitHub Actions ejecuta un workflow definido en YAML.
 
